@@ -5,22 +5,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# OpenRouter API key
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+# Ollama connection
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
-# Council members - list of OpenRouter model identifiers
-COUNCIL_MODELS = [
-    "openai/gpt-5.1",
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4.5",
-    "x-ai/grok-4",
-]
+# Council members - list of Ollama model identifiers
+COUNCIL_MODELS = os.getenv("COUNCIL_MODELS", "mistral,llama3,phi3").split(",")
+COUNCIL_MODELS = [model.strip() for model in COUNCIL_MODELS if model.strip()]
 
-# Chairman model - synthesizes final response
-CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
+# Chairman model - synthesizes final response (must be distinct)
+CHAIRMAN_MODEL = os.getenv("CHAIRMAN_MODEL", "llama3:instruct")
 
-# OpenRouter API endpoint
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+# Generation controls
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", "800"))
+TEMPERATURE_STAGE1 = float(os.getenv("TEMPERATURE_STAGE1", "0.6"))
+TEMPERATURE_REVIEW = float(os.getenv("TEMPERATURE_REVIEW", "0.2"))
+TEMPERATURE_CHAIRMAN = float(os.getenv("TEMPERATURE_CHAIRMAN", "0.3"))
+TIMEOUT_SECONDS = float(os.getenv("TIMEOUT_SECONDS", "120"))
+STREAM = os.getenv("STREAM", "False").lower() == "true"
 
 # Data directory for conversation storage
 DATA_DIR = "data/conversations"

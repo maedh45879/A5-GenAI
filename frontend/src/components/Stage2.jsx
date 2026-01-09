@@ -2,16 +2,9 @@ import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import './Stage2.css';
 
-function deAnonymizeText(text, labelToModel) {
-  if (!labelToModel) return text;
-
-  let result = text;
-  // Replace each "Response X" with the actual model name
-  Object.entries(labelToModel).forEach(([label, model]) => {
-    const modelShortName = model.split('/')[1] || model;
-    result = result.replace(new RegExp(label, 'g'), `**${modelShortName}**`);
-  });
-  return result;
+function labelToName(label, labelToModel) {
+  if (!labelToModel || !labelToModel[label]) return label;
+  return labelToModel[label].split('/')[1] || labelToModel[label];
 }
 
 export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
@@ -21,14 +14,15 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
     return null;
   }
 
+  const active = rankings[activeTab];
+
   return (
     <div className="stage stage2">
       <h3 className="stage-title">Stage 2: Peer Rankings</h3>
 
-      <h4>Raw Evaluations</h4>
+      <h4>Reviewer Outputs</h4>
       <p className="stage-description">
-        Each model evaluated all responses (anonymized as Response A, B, C, etc.) and provided rankings.
-        Below, model names are shown in <strong>bold</strong> for readability, but the original evaluation used anonymous labels.
+        Each reviewer ranks the anonymized responses (Model A, B, C, etc.) and provides a short justification.
       </p>
 
       <div className="tabs">
@@ -38,43 +32,63 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
             className={`tab ${activeTab === index ? 'active' : ''}`}
             onClick={() => setActiveTab(index)}
           >
-            {rank.model.split('/')[1] || rank.model}
+            {rank.reviewer_model?.split('/')[1] || rank.reviewer_model}
           </button>
         ))}
       </div>
 
       <div className="tab-content">
         <div className="ranking-model">
-          {rankings[activeTab].model}
-        </div>
-        <div className="ranking-content markdown-content">
-          <ReactMarkdown>
-            {deAnonymizeText(rankings[activeTab].ranking, labelToModel)}
-          </ReactMarkdown>
+          {active.reviewer_model}
         </div>
 
-        {rankings[activeTab].parsed_ranking &&
-         rankings[activeTab].parsed_ranking.length > 0 && (
+        {active.error && (
           <div className="parsed-ranking">
-            <strong>Extracted Ranking:</strong>
+            <strong>Error:</strong> {active.error}
+          </div>
+        )}
+
+        {active.ranking && active.ranking.length > 0 && (
+          <div className="parsed-ranking">
+            <strong>Ranking:</strong>
             <ol>
-              {rankings[activeTab].parsed_ranking.map((label, i) => (
+              {active.ranking.map((label, i) => (
                 <li key={i}>
-                  {labelToModel && labelToModel[label]
-                    ? labelToModel[label].split('/')[1] || labelToModel[label]
-                    : label}
+                  {labelToName(label, labelToModel)}
                 </li>
               ))}
             </ol>
+          </div>
+        )}
+
+        {active.justification && Object.keys(active.justification).length > 0 && (
+          <div className="parsed-ranking">
+            <strong>Justification:</strong>
+            {Object.entries(active.justification).map(([label, text]) => (
+              <div key={label} className="ranking-content markdown-content">
+                <ReactMarkdown>
+                  {`${labelToName(label, labelToModel)}: ${text}`}
+                </ReactMarkdown>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {active.parse_status && active.parse_status !== 'parsed_json' && active.raw_text && (
+          <div className="parsed-ranking">
+            <strong>Raw Output (fallback used):</strong>
+            <div className="ranking-content markdown-content">
+              <ReactMarkdown>{active.raw_text}</ReactMarkdown>
+            </div>
           </div>
         )}
       </div>
 
       {aggregateRankings && aggregateRankings.length > 0 && (
         <div className="aggregate-rankings">
-          <h4>Aggregate Rankings (Street Cred)</h4>
+          <h4>Aggregate Rankings</h4>
           <p className="stage-description">
-            Combined results across all peer evaluations (lower score is better):
+            Combined results across all peer evaluations (higher score is better):
           </p>
           <div className="aggregate-list">
             {aggregateRankings.map((agg, index) => (
@@ -84,10 +98,10 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
                   {agg.model.split('/')[1] || agg.model}
                 </span>
                 <span className="rank-score">
-                  Avg: {agg.average_rank.toFixed(2)}
+                  Score: {agg.score}
                 </span>
                 <span className="rank-count">
-                  ({agg.rankings_count} votes)
+                  ({agg.votes} votes)
                 </span>
               </div>
             ))}

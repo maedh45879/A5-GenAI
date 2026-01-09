@@ -1,56 +1,31 @@
-"""OpenRouter API client for making LLM requests."""
+"""Deprecated OpenRouter shim (kept for backwards compatibility)."""
 
-import httpx
 from typing import List, Dict, Any, Optional
-from .config import OPENROUTER_API_KEY, OPENROUTER_API_URL
+from .ollama import query_model as ollama_query_model, query_models_parallel as ollama_query_models_parallel
+from .config import MAX_TOKENS, TEMPERATURE_STAGE1, TIMEOUT_SECONDS
 
 
 async def query_model(
     model: str,
     messages: List[Dict[str, str]],
-    timeout: float = 120.0
+    timeout: float = TIMEOUT_SECONDS
 ) -> Optional[Dict[str, Any]]:
     """
-    Query a single model via OpenRouter API.
-
-    Args:
-        model: OpenRouter model identifier (e.g., "openai/gpt-4o")
-        messages: List of message dicts with 'role' and 'content'
-        timeout: Request timeout in seconds
-
-    Returns:
-        Response dict with 'content' and optional 'reasoning_details', or None if failed
+    Query a single model via Ollama (OpenRouter shim).
     """
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    payload = {
-        "model": model,
-        "messages": messages,
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(
-                OPENROUTER_API_URL,
-                headers=headers,
-                json=payload
-            )
-            response.raise_for_status()
-
-            data = response.json()
-            message = data['choices'][0]['message']
-
-            return {
-                'content': message.get('content'),
-                'reasoning_details': message.get('reasoning_details')
-            }
-
-    except Exception as e:
-        print(f"Error querying model {model}: {e}")
+    response = await ollama_query_model(
+        model,
+        messages,
+        temperature=TEMPERATURE_STAGE1,
+        max_tokens=MAX_TOKENS,
+        timeout=timeout,
+    )
+    if response.get("error"):
         return None
+    return {
+        "content": response.get("content", ""),
+        "reasoning_details": None,
+    }
 
 
 async def query_models_parallel(
@@ -58,22 +33,17 @@ async def query_models_parallel(
     messages: List[Dict[str, str]]
 ) -> Dict[str, Optional[Dict[str, Any]]]:
     """
-    Query multiple models in parallel.
-
-    Args:
-        models: List of OpenRouter model identifiers
-        messages: List of message dicts to send to each model
-
-    Returns:
-        Dict mapping model identifier to response dict (or None if failed)
+    Query multiple models in parallel via Ollama.
     """
-    import asyncio
-
-    # Create tasks for all models
-    tasks = [query_model(model, messages) for model in models]
-
-    # Wait for all to complete
-    responses = await asyncio.gather(*tasks)
-
-    # Map models to their responses
-    return {model: response for model, response in zip(models, responses)}
+    responses = await ollama_query_models_parallel(
+        models,
+        messages,
+        temperature=TEMPERATURE_STAGE1,
+        max_tokens=MAX_TOKENS,
+        timeout=TIMEOUT_SECONDS,
+    )
+    return {
+        model: ({"content": response.get("content", ""), "reasoning_details": None}
+                if not response.get("error") else None)
+        for model, response in responses.items()
+    }

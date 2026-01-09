@@ -2,7 +2,7 @@
 
 ![llmcouncil](header.jpg)
 
-The idea of this repo is that instead of asking a question to your favorite LLM provider (e.g. OpenAI GPT 5.1, Google Gemini 3.0 Pro, Anthropic Claude Sonnet 4.5, xAI Grok 4, eg.c), you can group them into your "LLM Council". This repo is a simple, local web app that essentially looks like ChatGPT except it uses OpenRouter to send your query to multiple LLMs, it then asks them to review and rank each other's work, and finally a Chairman LLM produces the final response.
+This repo runs a local "LLM Council" on one machine using Ollama. You ask a question once, the council models respond in parallel, they anonymously review each other, and a separate chairman model synthesizes the final answer.
 
 In a bit more detail, here is what happens when you submit a query:
 
@@ -32,30 +32,35 @@ npm install
 cd ..
 ```
 
-### 2. Configure API Key
+### 2. Install and Run Ollama
 
-Create a `.env` file in the project root:
+Install Ollama from https://ollama.com and start it locally.
+
+Pull the default models:
 
 ```bash
-OPENROUTER_API_KEY=sk-or-v1-...
+ollama pull mistral
+ollama pull llama3
+ollama pull phi3
+ollama pull llama3:instruct
 ```
-
-Get your API key at [openrouter.ai](https://openrouter.ai/). Make sure to purchase the credits you need, or sign up for automatic top up.
 
 ### 3. Configure Models (Optional)
 
-Edit `backend/config.py` to customize the council:
+Edit `backend/config.py` or set environment variables in a `.env` file:
 
 ```python
-COUNCIL_MODELS = [
-    "openai/gpt-5.1",
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4.5",
-    "x-ai/grok-4",
-]
-
-CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
+OLLAMA_BASE_URL = "http://localhost:11434"
+COUNCIL_MODELS = ["mistral", "llama3", "phi3"]
+CHAIRMAN_MODEL = "llama3:instruct"
+MAX_TOKENS = 800
+TEMPERATURE_STAGE1 = 0.6
+TEMPERATURE_REVIEW = 0.2
+TEMPERATURE_CHAIRMAN = 0.3
+TIMEOUT_SECONDS = 120
 ```
+
+Note: `CHAIRMAN_MODEL` must be distinct from entries in `COUNCIL_MODELS`.
 
 ## Running the Application
 
@@ -79,9 +84,40 @@ npm run dev
 
 Then open http://localhost:5173 in your browser.
 
+## Demo Walkthrough
+
+1. Open the UI and create a new conversation.
+2. Ask a question (e.g., "Explain backpropagation in simple terms.").
+3. Watch Stage 1 tabs for each model response.
+4. Review Stage 2 rankings and justifications, plus the aggregate scores.
+5. Read the Stage 3 chairman synthesis.
+
+## Health Check
+
+Check model availability:
+
+```bash
+curl http://localhost:8001/health
+```
+
+## Troubleshooting
+
+- **Model missing:** Run `ollama pull <model-name>` for any missing model listed by `/health`.
+- **Ollama not running:** Start the Ollama app/service and verify `http://localhost:11434`.
+- **Timeouts:** Increase `TIMEOUT_SECONDS` in `backend/config.py`.
+
+## Verified Steps
+
+- Not run in this environment.
+
+## Deliverables
+
+- `report.md` - short technical report
+- `ai_usage_statement.md` - generative AI usage statement
+
 ## Tech Stack
 
-- **Backend:** FastAPI (Python 3.10+), async httpx, OpenRouter API
+- **Backend:** FastAPI (Python 3.10+), async httpx, Ollama local API
 - **Frontend:** React + Vite, react-markdown for rendering
 - **Storage:** JSON files in `data/conversations/`
 - **Package Management:** uv for Python, npm for JavaScript
