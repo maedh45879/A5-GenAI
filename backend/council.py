@@ -2,7 +2,6 @@
 
 from typing import List, Dict, Any, Tuple, Optional
 import json
-import re
 
 from .ollama import query_models_parallel, query_model
 from .config import (
@@ -80,6 +79,18 @@ async def stage2_collect_rankings(
 
     example_label = labels[0] if labels else "Model A"
 
+    system_prompt = """You must respond with STRICT JSON only and nothing else.
+The JSON must exactly match this schema:
+{
+  "ranking": ["Model A", "Model B", "Model C"],
+  "justifications": {
+    "Model A": "short reason",
+    "Model B": "short reason",
+    "Model C": "short reason"
+  }
+}
+"""
+
     ranking_prompt = f"""You are evaluating different responses to the following question.
 
 Question: {user_query}
@@ -88,11 +99,10 @@ Here are the responses from different models (anonymized):
 
 {responses_text}
 
-Rank the responses by accuracy and insight. Return ONLY valid JSON with this schema:
+Rank the responses by accuracy and insight. Return STRICT JSON only with this schema:
 {{
-  "reviewer_model": "<your model name>",
   "ranking": ["{example_label}", "..."],
-  "justification": {{
+  "justifications": {{
     "{example_label}": "<short justification>",
     "...": "..."
   }}
@@ -105,7 +115,10 @@ Rules:
 - Output JSON only. No extra text.
 """
 
-    messages = [{"role": "user", "content": ranking_prompt}]
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": ranking_prompt},
+    ]
 
     responses = await query_models_parallel(
         COUNCIL_MODELS,
@@ -125,7 +138,7 @@ Rules:
             "reviewer_model": model,
             "raw_text": full_text,
             "ranking": parsed["ranking"],
-            "justification": parsed["justification"],
+            "justification": parsed["justifications"],
             "parse_status": parsed["parse_status"],
             "error": error,
         })
@@ -198,20 +211,6 @@ Synthesize the best possible final answer to the original question. Focus on acc
     }
 
 
-def _extract_labels_from_text(text: str, labels: List[str]) -> List[str]:
-    if not labels:
-        return []
-    pattern = "(" + "|".join(re.escape(label) for label in labels) + ")"
-    found = re.findall(pattern, text)
-    seen = set()
-    ordered = []
-    for label in found:
-        if label not in seen:
-            ordered.append(label)
-            seen.add(label)
-    return ordered
-
-
 def _try_parse_json(text: str) -> Optional[Dict[str, Any]]:
     try:
         return json.loads(text)
@@ -219,42 +218,46 @@ def _try_parse_json(text: str) -> Optional[Dict[str, Any]]:
         pass
 
     start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        try:
-            return json.loads(text[start:end + 1])
-        except Exception:
-            return None
+    if start == -1:
+        return None
+
+    depth = 0
+    for idx in range(start, len(text)):
+        char = text[idx]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(text[start:idx + 1])
+                except Exception:
+                    return None
     return None
 
 
 def parse_reviewer_output(text: str, labels: List[str]) -> Dict[str, Any]:
     """
-    Parse reviewer JSON output with a fallback to text extraction.
+    Parse reviewer JSON output with strict JSON requirements.
     """
     parsed_json = _try_parse_json(text)
     ranking: List[str] = []
-    justification: Dict[str, str] = {}
+    justifications: Dict[str, str] = {}
     parse_status = "unparsed"
 
     if isinstance(parsed_json, dict):
         raw_ranking = parsed_json.get("ranking", [])
         if isinstance(raw_ranking, list):
             ranking = [item for item in raw_ranking if item in labels]
-        raw_justification = parsed_json.get("justification", {})
-        if isinstance(raw_justification, dict):
-            justification = {
-                label: str(raw_justification.get(label, "")).strip()
+        raw_justifications = parsed_json.get("justifications", {})
+        if isinstance(raw_justifications, dict):
+            justifications = {
+                label: str(raw_justifications.get(label, "")).strip()
                 for label in labels
-                if raw_justification.get(label) is not None
+                if raw_justifications.get(label) is not None
             }
         if ranking:
             parse_status = "parsed_json"
-
-    if not ranking:
-        ranking = _extract_labels_from_text(text, labels)
-        if ranking:
-            parse_status = "fallback_text"
 
     if ranking:
         for label in labels:
@@ -263,7 +266,7 @@ def parse_reviewer_output(text: str, labels: List[str]) -> Dict[str, Any]:
 
     return {
         "ranking": ranking,
-        "justification": justification,
+        "justifications": justifications,
         "parse_status": parse_status,
     }
 

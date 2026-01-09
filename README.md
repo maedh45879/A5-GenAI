@@ -39,9 +39,9 @@ Install Ollama from https://ollama.com and start it locally.
 Pull the default models:
 
 ```bash
+ollama pull phi3
 ollama pull mistral
 ollama pull llama3
-ollama pull phi3
 ollama pull llama3:instruct
 ```
 
@@ -51,7 +51,7 @@ Edit `backend/config.py` or set environment variables in a `.env` file:
 
 ```python
 OLLAMA_BASE_URL = "http://localhost:11434"
-COUNCIL_MODELS = ["mistral", "llama3", "phi3"]
+COUNCIL_MODELS = ["phi3", "mistral", "llama3"]
 CHAIRMAN_MODEL = "llama3:instruct"
 MAX_TOKENS = 800
 TEMPERATURE_STAGE1 = 0.6
@@ -78,6 +78,21 @@ uv run python -m backend.main
 
 Terminal 2 (Frontend):
 ```bash
+cd frontend
+npm run dev
+```
+
+Then open http://localhost:5173 in your browser.
+
+**Windows (PowerShell)**
+
+Terminal 1 (Backend):
+```powershell
+uv run python -m backend.main
+```
+
+Terminal 2 (Frontend):
+```powershell
 cd frontend
 npm run dev
 ```

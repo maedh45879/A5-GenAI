@@ -9,7 +9,7 @@ load_dotenv()
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 # Council members - list of Ollama model identifiers
-COUNCIL_MODELS = os.getenv("COUNCIL_MODELS", "mistral,llama3,phi3").split(",")
+COUNCIL_MODELS = os.getenv("COUNCIL_MODELS", "phi3,mistral,llama3").split(",")
 COUNCIL_MODELS = [model.strip() for model in COUNCIL_MODELS if model.strip()]
 
 # Chairman model - synthesizes final response (must be distinct)

@@ -71,13 +71,15 @@ async def health():
     Health check for Ollama and model availability.
     """
     available = await list_models()
-    missing = [
-        model for model in COUNCIL_MODELS + [CHAIRMAN_MODEL]
-        if model not in available
-    ]
+    required_models = COUNCIL_MODELS + [CHAIRMAN_MODEL]
+    required_present = {model: model in available for model in required_models}
+    missing = [model for model, present in required_present.items() if not present]
     return {
+        "ok": len(missing) == 0,
         "ollama_reachable": bool(available),
         "available_models": available,
+        "required_models": required_models,
+        "required_present": required_present,
         "missing_models": missing,
     }
 

@@ -1,3 +1,3 @@
-# Generative AI Usage Statement
+# AI Usage Statement
 
-Generative AI assistance was used to refactor the codebase, update documentation, and draft this report. All changes were reviewed and edited by the author to fit the project requirements.
+This project was developed with the assistance of an AI coding tool. The AI was used to propose code changes, documentation updates, and implementation details based on user requirements. All modifications were reviewed and applied within the local repository by the developer.
