@@ -11,39 +11,38 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 ### Backend Structure (`backend/`)
 
 **`config.py`**
-- Contains `COUNCIL_MODELS` (list of OpenRouter model identifiers)
+- Contains `COUNCIL_MODELS` (list of Ollama model identifiers)
 - Contains `CHAIRMAN_MODEL` (model that synthesizes final answer)
-- Uses environment variable `OPENROUTER_API_KEY` from `.env`
+- Uses `OLLAMA_BASE_URL` from `.env` (defaults to `http://localhost:11434`)
 - Backend runs on **port 8001** (NOT 8000 - user had another app on 8000)
 
-**`openrouter.py`**
-- `query_model()`: Single async model query
+**`ollama.py`**
+- `query_model()`: Single async model query to `/api/chat`
 - `query_models_parallel()`: Parallel queries using `asyncio.gather()`
-- Returns dict with 'content' and optional 'reasoning_details'
-- Graceful degradation: returns None on failure, continues with successful responses
+- Returns dict with `content` and `error` when failures occur
+- `list_models()` hits `/api/tags` for availability
 
 **`council.py`** - The Core Logic
 - `stage1_collect_responses()`: Parallel queries to all council models
 - `stage2_collect_rankings()`:
-  - Anonymizes responses as "Response A, B, C, etc."
+  - Anonymizes responses as "Model A, Model B, Model C, etc."
   - Creates `label_to_model` mapping for de-anonymization
-  - Prompts models to evaluate and rank (with strict format requirements)
-  - Returns tuple: (rankings_list, label_to_model_dict)
-  - Each ranking includes both raw text and `parsed_ranking` list
+  - Prompts models for strict JSON ranking + justification
+  - Returns tuple: (rankings_list, label_to_model_dict) with parse status
 - `stage3_synthesize_final()`: Chairman synthesizes from all responses + rankings
-- `parse_ranking_from_text()`: Extracts "FINAL RANKING:" section, handles both numbered lists and plain format
-- `calculate_aggregate_rankings()`: Computes average rank position across all peer evaluations
+- `parse_reviewer_output()`: Parses strict JSON with fallback label extraction
+- `calculate_aggregate_rankings()`: Computes point-based aggregate scores
 
 **`storage.py`**
 - JSON-based conversation storage in `data/conversations/`
 - Each conversation: `{id, created_at, messages[]}`
-- Assistant messages contain: `{role, stage1, stage2, stage3}`
-- Note: metadata (label_to_model, aggregate_rankings) is NOT persisted to storage, only returned via API
+- Assistant messages contain: `{role, stage1, stage2, stage3, metadata}`
 
 **`main.py`**
 - FastAPI app with CORS enabled for localhost:5173 and localhost:3000
 - POST `/api/conversations/{id}/message` returns metadata in addition to stages
 - Metadata includes: label_to_model mapping and aggregate_rankings
+- GET `/health` returns Ollama availability and missing models
 
 ### Frontend Structure (`frontend/src/`)
 
@@ -62,11 +61,9 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 - ReactMarkdown rendering with markdown-content wrapper
 
 **`components/Stage2.jsx`**
-- **Critical Feature**: Tab view showing RAW evaluation text from each model
-- De-anonymization happens CLIENT-SIDE for display (models receive anonymous labels)
-- Shows "Extracted Ranking" below each evaluation so users can validate parsing
-- Aggregate rankings shown with average position and vote count
-- Explanatory text clarifies that boldface model names are for readability only
+- Tab view showing each reviewer ranking + justification
+- De-anonymization happens CLIENT-SIDE for display
+- Shows aggregate rankings with point totals
 
 **`components/Stage3.jsx`**
 - Final synthesized answer from chairman
@@ -81,27 +78,18 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 ## Key Design Decisions
 
 ### Stage 2 Prompt Format
-The Stage 2 prompt is very specific to ensure parseable output:
-```
-1. Evaluate each response individually first
-2. Provide "FINAL RANKING:" header
-3. Numbered list format: "1. Response C", "2. Response A", etc.
-4. No additional text after ranking section
-```
-
-This strict format allows reliable parsing while still getting thoughtful evaluations.
+Stage 2 requires strict JSON output with `ranking` and `justification` fields to improve parsing reliability.
 
 ### De-anonymization Strategy
-- Models receive: "Response A", "Response B", etc.
-- Backend creates mapping: `{"Response A": "openai/gpt-5.1", ...}`
-- Frontend displays model names in **bold** for readability
-- Users see explanation that original evaluation used anonymous labels
+- Models receive: "Model A", "Model B", etc.
+- Backend creates mapping: `{"Model A": "llama3", ...}`
+- Frontend displays model names for readability
 - This prevents bias while maintaining transparency
 
 ### Error Handling Philosophy
 - Continue with successful responses if some models fail (graceful degradation)
 - Never fail the entire request due to single model failure
-- Log errors but don't expose to user unless all models fail
+- Return error fields in stage outputs when a model fails
 
 ### UI/UX Transparency
 - All raw outputs are inspectable via tabs
@@ -123,13 +111,13 @@ All backend modules use relative imports (e.g., `from .config import ...`) not a
 All ReactMarkdown components must be wrapped in `<div className="markdown-content">` for proper spacing. This class is defined globally in `index.css`.
 
 ### Model Configuration
-Models are hardcoded in `backend/config.py`. Chairman can be same or different from council members. The current default is Gemini as chairman per user preference.
+Models are configured in `backend/config.py` or `.env`. `CHAIRMAN_MODEL` must be distinct from `COUNCIL_MODELS`.
 
 ## Common Gotchas
 
 1. **Module Import Errors**: Always run backend as `python -m backend.main` from project root, not from backend directory
 2. **CORS Issues**: Frontend must match allowed origins in `main.py` CORS middleware
-3. **Ranking Parse Failures**: If models don't follow format, fallback regex extracts any "Response X" patterns in order
+3. **Ranking Parse Failures**: If models don't follow JSON format, fallback label extraction is used
 4. **Missing Metadata**: Metadata is ephemeral (not persisted), only available in API responses
 
 ## Future Enhancement Ideas
@@ -143,7 +131,7 @@ Models are hardcoded in `backend/config.py`. Chairman can be same or different f
 
 ## Testing Notes
 
-Use `test_openrouter.py` to verify API connectivity and test different model identifiers before adding to council. The script tests both streaming and non-streaming modes.
+Use `/health` to verify Ollama connectivity and check for missing models before running the council.
 
 ## Data Flow Summary
 
