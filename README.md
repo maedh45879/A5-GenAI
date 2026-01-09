@@ -73,6 +73,7 @@ Note: `CHAIRMAN_MODEL` must be distinct from entries in `COUNCIL_MODELS`.
 
 Terminal 1 (Backend):
 ```bash
+.\.venv\Scripts\activate
 uv run python -m backend.main
 ```
 
