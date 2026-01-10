@@ -64,13 +64,6 @@ Note: `CHAIRMAN_MODEL` must be distinct from entries in `COUNCIL_MODELS`.
 
 ## Running the Application
 
-**Option 1: Use the start script**
-```bash
-./start.sh
-```
-
-**Option 2: Run manually**
-
 Terminal 1 (Backend):
 ```bash
 .\.venv\Scripts\activate

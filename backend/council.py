@@ -1,7 +1,9 @@
 """3-stage LLM Council orchestration."""
 
 from typing import List, Dict, Any, Tuple, Optional
+import asyncio
 import json
+import logging
 
 from .ollama import query_models_parallel, query_model
 from .config import (
@@ -13,6 +15,11 @@ from .config import (
     TEMPERATURE_CHAIRMAN,
     TIMEOUT_SECONDS,
 )
+
+logger = logging.getLogger(__name__)
+WARMUP_MODELS = ["phi3", "llama3", "mistral"]
+_warmup_done = False
+_warmup_lock = asyncio.Lock()
 
 
 def _build_display_ids(models: List[str]) -> Dict[str, str]:
@@ -32,6 +39,7 @@ async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
     Returns:
         List of dicts with model, display_id, response, error keys.
     """
+    await warm_up_ollama_models()
     messages = [{"role": "user", "content": user_query}]
     display_ids = _build_display_ids(COUNCIL_MODELS)
 
@@ -57,6 +65,38 @@ async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
         })
 
     return stage1_results
+
+
+async def warm_up_ollama_models() -> None:
+    """
+    Send a small prompt to each required model to reduce cold-start delays.
+    """
+    global _warmup_done
+    if _warmup_done:
+        return
+    async with _warmup_lock:
+        if _warmup_done:
+            return
+        logger.info("Warming up Ollama models: %s", ", ".join(WARMUP_MODELS))
+        messages = [{"role": "user", "content": "Reply with the single word: ready."}]
+        tasks = [
+            query_model(
+                model,
+                messages,
+                temperature=0.0,
+                max_tokens=5,
+                timeout=15.0,
+            )
+            for model in WARMUP_MODELS
+        ]
+        results = await asyncio.gather(*tasks)
+        for model, result in zip(WARMUP_MODELS, results):
+            error = result.get("error")
+            if error:
+                logger.warning("Ollama warm-up failed for %s: %s", model, error)
+            else:
+                logger.info("Ollama warm-up succeeded for %s", model)
+        _warmup_done = True
 
 
 async def stage2_collect_rankings(

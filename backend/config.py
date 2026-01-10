@@ -23,7 +23,7 @@ MAX_TOKENS = int(os.getenv("MAX_TOKENS", "600"))
 TEMPERATURE_STAGE1 = float(os.getenv("TEMPERATURE_STAGE1", "0.6"))
 TEMPERATURE_REVIEW = float(os.getenv("TEMPERATURE_REVIEW", "0.2"))
 TEMPERATURE_CHAIRMAN = float(os.getenv("TEMPERATURE_CHAIRMAN", "0.3"))
-TIMEOUT_SECONDS = float(os.getenv("TIMEOUT_SECONDS", "240"))
+TIMEOUT_SECONDS = float(os.getenv("TIMEOUT_SECONDS", "360"))
 STREAM = os.getenv("STREAM", "False").lower() == "true"
 
 # Data directory for conversation storage

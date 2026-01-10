@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
 import uuid
@@ -19,7 +19,6 @@ from .council import (
     calculate_aggregate_rankings,
 )
 from .ollama import list_models
-from .config import COUNCIL_MODELS, CHAIRMAN_MODEL
 
 app = FastAPI(title="LLM Council API")
 
@@ -68,21 +67,22 @@ async def root():
 @app.get("/health")
 async def health():
     """
-    Health check for Ollama and model availability.
+    Health check for Ollama and required model availability.
     """
     available = await list_models()
-    required_models = COUNCIL_MODELS + [CHAIRMAN_MODEL]
-    required_present = {model: model in available for model in required_models}
-    missing = [model for model, present in required_present.items() if not present]
-    ollama_reachable = bool(available)
-    return {
-        "ok": ollama_reachable and len(missing) == 0,
-        "ollama_reachable": ollama_reachable,
+    required_models = ["phi3", "llama3", "mistral"]
+    available_base = {model.split(":")[0] for model in available}
+    missing = [model for model in required_models if model not in available_base]
+    ok = len(missing) == 0
+    payload = {
+        "ok": ok,
         "available_models": available,
         "required_models": required_models,
-        "required_present": required_present,
         "missing_models": missing,
     }
+    if not ok:
+        return JSONResponse(status_code=503, content=payload)
+    return payload
 
 
 @app.get("/api/conversations", response_model=List[ConversationMetadata])
