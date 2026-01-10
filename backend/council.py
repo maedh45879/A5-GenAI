@@ -53,6 +53,7 @@ async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
             "display_id": display_ids[model],
             "response": content if not error else f"Error: {error}",
             "error": error,
+            "available": error is None,
         })
 
     return stage1_results

@@ -74,9 +74,10 @@ async def health():
     required_models = COUNCIL_MODELS + [CHAIRMAN_MODEL]
     required_present = {model: model in available for model in required_models}
     missing = [model for model, present in required_present.items() if not present]
+    ollama_reachable = bool(available)
     return {
-        "ok": len(missing) == 0,
-        "ollama_reachable": bool(available),
+        "ok": ollama_reachable and len(missing) == 0,
+        "ollama_reachable": ollama_reachable,
         "available_models": available,
         "required_models": required_models,
         "required_present": required_present,

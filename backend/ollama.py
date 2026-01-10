@@ -18,7 +18,8 @@ async def list_models(timeout: float = 10.0) -> List[str]:
         List of model names (e.g., "llama3:instruct").
     """
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        request_timeout = httpx.Timeout(timeout, connect=5.0)
+        async with httpx.AsyncClient(timeout=request_timeout) as client:
             response = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
             response.raise_for_status()
             data = response.json()
@@ -52,7 +53,8 @@ async def query_model(
     if max_tokens is not None:
         payload["options"]["num_predict"] = max_tokens
 
-    request_timeout = TIMEOUT_SECONDS if timeout is None else timeout
+    timeout_seconds = TIMEOUT_SECONDS if timeout is None else timeout
+    request_timeout = httpx.Timeout(timeout_seconds, connect=10.0)
 
     try:
         async with httpx.AsyncClient(timeout=request_timeout) as client:

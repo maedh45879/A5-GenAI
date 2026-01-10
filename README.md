@@ -85,20 +85,6 @@ npm run dev
 
 Then open http://localhost:5173 in your browser.
 
-**Windows (PowerShell)**
-
-Terminal 1 (Backend):
-```powershell
-uv run python -m backend.main
-```
-
-Terminal 2 (Frontend):
-```powershell
-cd frontend
-npm run dev
-```
-
-Then open http://localhost:5173 in your browser.
 
 ## Demo Walkthrough
 
