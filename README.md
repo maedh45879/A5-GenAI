@@ -4,6 +4,8 @@
 
 This repo runs a local "LLM Council" on one machine using Ollama. You ask a question once, the council models respond in parallel, they anonymously review each other, and a separate chairman model synthesizes the final answer.
 
+## **Done by Manon AUBRY, classe DIA1 - CDOF1**
+
 In a bit more detail, here is what happens when you submit a query:
 
 1. **Stage 1: First opinions**. The user query is given to all LLMs individually, and the responses are collected. The individual responses are shown in a "tab view", so that the user can inspect them all one by one.
@@ -45,7 +47,7 @@ ollama pull llama3
 ollama pull llama3:instruct
 ```
 
-### 3. Configure Models (Optional)
+### 3. Configure Models (OPTIONNAL)
 
 Edit `backend/config.py` or set environment variables in a `.env` file:
 
@@ -101,14 +103,9 @@ curl http://localhost:8001/health
 - **Ollama not running:** Start the Ollama app/service and verify `http://localhost:11434`.
 - **Timeouts:** Increase `TIMEOUT_SECONDS` in `backend/config.py`.
 
-## Verified Steps
-
-- Not run in this environment.
-
 ## Deliverables
 
 - `report.md` - short technical report
-- `ai_usage_statement.md` - generative AI usage statement
 
 ## Tech Stack
 
