@@ -113,3 +113,13 @@ curl http://localhost:8001/health
 - **Frontend:** React + Vite, react-markdown for rendering
 - **Storage:** JSON files in `data/conversations/`
 - **Package Management:** uv for Python, npm for JavaScript
+
+## Generative AI Usage Statement
+
+Generative AI tools were used during this project.
+I used Codex and Chat GPT to help me with code refactoring, debugging, documentation writing, and project design.
+
+All final decisions, code implementation, and tests were done by me.
+Generative AI was used only as a support tool and not to replace my work.
+
+This statement is included to respect the project rules about the transparent use of Generative AI tools.
